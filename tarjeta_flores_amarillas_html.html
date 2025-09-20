@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tu ramo virtual — Flores Amarillas 🌼</title>
+  <style>
+    :root{--bg:#fff9ea;--accent:#ffd54a;--text:#222}
+    *{box-sizing:border-box}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial; margin:0; min-height:100vh; background:linear-gradient(180deg,var(--bg),#fff); color:var(--text); display:flex; align-items:center; justify-content:center; padding:24px}
+    .card{width:900px; max-width:95vw; background:linear-gradient(180deg,rgba(255,255,255,0.9),#fff); border-radius:16px; box-shadow:0 10px 30px rgba(20,20,20,0.08); overflow:hidden; display:grid; grid-template-columns:1fr 420px}
+    .left{padding:36px}
+    h1{margin:0 0 8px; font-size:28px}
+    p.lead{margin:0 0 18px; color:#444}
+    .actions{display:flex; gap:8px; margin-top:14px}
+    button{background:var(--accent); border:0; padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:600}
+    .small{background:transparent; border:1px solid #eee}
+    .stage{background:linear-gradient(135deg,#fffaf0,#fff); border-radius:12px; padding:12px; border:1px dashed rgba(0,0,0,0.05)}
+    /* user art area */
+    .art-wrap{display:flex; align-items:center; justify-content:center; height:360px; background:linear-gradient(180deg,#fff,#fffef2); border-radius:10px; position:relative; overflow:hidden}
+    #userArt{max-width:100%; max-height:100%; pointer-events:none}
+    .flowers{position:absolute; inset:0; pointer-events:none}
+    .note{font-size:14px; color:#666; margin-top:8px}
+
+    /* right column */
+    .right{background:linear-gradient(180deg,#fffbdf,#fff); padding:28px; display:flex; flex-direction:column; gap:12px}
+    label.upload{display:block; background:#fff; padding:10px; border-radius:10px; border:1px dashed rgba(0,0,0,0.06); text-align:center; cursor:pointer}
+    input[type=file]{display:none}
+    .message{background:#fff; padding:12px; border-radius:8px; min-height:120px; resize:none; border:1px solid rgba(0,0,0,0.04)}
+    .footer{display:flex; gap:8px; align-items:center}
+    .copy{font-size:13px; color:#666}
+
+    /* floating petal animation */
+    .petal{position:absolute; width:36px; height:36px; border-radius:50%; background:var(--accent); opacity:.95; transform-origin:center; filter:drop-shadow(0 6px 12px rgba(0,0,0,0.06))}
+    .petal::after{content:''; position:absolute; inset:6px 6px; border-radius:50%; background:rgba(255,255,255,0.15)}
+
+    @keyframes floaty{0%{transform:translateY(0) rotate(0)}50%{transform:translateY(-18px) rotate(20deg)}100%{transform:translateY(0) rotate(0)}}
+
+    /* responsive */
+    @media (max-width:880px){.card{grid-template-columns:1fr} .right{order:2} .left{order:1}}
+  </style>
+</head>
+<body>
+  <div class="card" role="main">
+    <div class="left">
+      <h1>Un ramo solo para ti 🌼</h1>
+      <p class="lead">Abre, sonríe y guarda — este ramo virtual está hecho a mano por mí. Puedes subir aquí tu dibujo (o arrastrarlo) para que quede dentro de la tarjeta.</p>
+
+      <div class="stage">
+        <div class="art-wrap" id="artWrap">
+          <!-- placeholder artwork: user replaces by upload or by replacing <img> src -->
+          <img id="userArt" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='100%' height='100%' fill='%23fffaf0'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='28' fill='%23ffd54a'>Sube tu dibujo aquí</text></svg>" alt="Tu dibujo" />
+
+          <div class="flowers" aria-hidden="true"></div>
+        </div>
+      </div>
+
+      <div class="note">Consejo: usa el botón “Descargar tarjeta” cuando termines para guardar una imagen del conjunto.</div>
+
+      <div class="actions">
+        <button id="downloadBtn">Descargar tarjeta</button>
+        <button class="small" id="surpriseBtn">Generar sorpresa (QR)</button>
+      </div>
+    </div>
+
+    <div class="right">
+      <label class="upload">Subir dibujo
+        <input id="fileInput" type="file" accept="image/*" />
+      </label>
+
+      <div>
+        <div contenteditable="true" id="message" class="message" aria-label="Mensaje">Para mi amiga: que este ramo virtual te recuerde lo importante que eres para mí. 💛</div>
+        <div class="copy">Puedes editar el texto arriba: aparecerá en la tarjeta.</div>
+      </div>
+
+      <div class="footer">
+        <input id="linkInput" placeholder="(opcional) pega aquí la URL donde subirás la página" style="flex:1;padding:8px;border-radius:8px;border:1px solid rgba(0,0,0,0.06)" />
+        <button id="copyLink">Copiar link</button>
+      </div>
+
+      <div style="font-size:13px;color:#666">Instrucciones rápidas:
+        <ol style="padding-left:18px;margin:8px 0">
+          <li>Haz click en "Subir dibujo" y elige tu archivo (PNG/JPG/webp).</li>
+          <li>Escribe el mensaje personalizado arriba.</li>
+          <li>Pulsa "Descargar tarjeta" para guardar una imagen lista para enviar por mensaje o subir a una web.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // simple floating petals generator
+    const flowers = document.querySelector('.flowers');
+    const colors = ['#ffd54a','#ffea7a','#ffe08a'];
+    function makePetal(x,y,size,delay,duration){
+      const el = document.createElement('div');
+      el.className='petal';
+      el.style.left = x+'%';
+      el.style.top = y+'%';
+      el.style.width = size+'px';
+      el.style.height = size+'px';
+      el.style.background = colors[Math.floor(Math.random()*colors.length)];
+      el.style.animation = `floaty ${duration}s ease-in-out ${delay}s infinite`;
+      el.style.opacity = (0.7+Math.random()*0.3).toFixed(2);
+      el.style.transform = `translateY(0) rotate(${Math.random()*40-20}deg)`;
+      flowers.appendChild(el);
+    }
+    for(let i=0;i<12;i++){
+      makePetal(10+Math.random()*80, 20+Math.random()*60, 24+Math.random()*28, Math.random()*3, 3+Math.random()*4);
+    }
+
+    // file upload -> preview
+    const fileInput = document.getElementById('fileInput');
+    const userArt = document.getElementById('userArt');
+    fileInput.addEventListener('change', e=>{
+      const f = e.target.files[0];
+      if(!f) return;
+      const reader = new FileReader();
+      reader.onload = ev=> userArt.src = ev.target.result;
+      reader.readAsDataURL(f);
+    });
+
+    // download composed card using html2canvas CDN
+    const downloadBtn = document.getElementById('downloadBtn');
+    downloadBtn.addEventListener('click', async ()=>{
+      // load html2canvas if not present
+      if(!window.html2canvas){
+        await new Promise((res)=>{
+          const s=document.createElement('script');
+          s.src='https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+          s.onload=res; document.body.appendChild(s);
+        });
+      }
+      const card = document.querySelector('.card');
+      const messageText = document.getElementById('message').innerText;
+      // temporarily show message text overlay
+      const overlay = document.createElement('div');
+      overlay.style.position='absolute'; overlay.style.left='36px'; overlay.style.bottom='36px'; overlay.style.maxWidth='48%'; overlay.style.pointerEvents='none'; overlay.style.fontSize='16px'; overlay.style.fontFamily='inherit'; overlay.style.color='#3a3a3a'; overlay.innerText = messageText;
+      document.body.appendChild(overlay);
+      const canvas = await html2canvas(card, {scale:2, backgroundColor:null});
+      overlay.remove();
+      const a = document.createElement('a');
+      a.download = 'ramo-virtual.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+    });
+
+    // surprise button: generate QR using Google Charts API link (user-hosted URL required)
+    document.getElementById('surpriseBtn').addEventListener('click', ()=>{
+      const link = document.getElementById('linkInput').value.trim();
+      if(!link){
+        alert('Pega la URL donde subirás la página en el campo de la derecha para generar el QR.');
+        return;
+      }
+      const qr = `https://chart.googleapis.com/chart?cht=qr&chs=300x300&chl=${encodeURIComponent(link)}`;
+      window.open(qr, '_blank');
+    });
+
+    // copy link (helper)
+    document.getElementById('copyLink').addEventListener('click', ()=>{
+      const val = document.getElementById('linkInput').value.trim();
+      if(!val) return alert('Pega la URL en el campo para copiarla.');
+      navigator.clipboard.writeText(val).then(()=>alert('Link copiado al portapapeles.'));
+    });
+
+    // support drag & drop
+    const artWrap = document.getElementById('artWrap');
+    artWrap.addEventListener('dragover', e=>{e.preventDefault(); artWrap.style.outline='3px dashed rgba(255,213,74,0.4)'});
+    artWrap.addEventListener('dragleave', e=>{artWrap.style.outline='none'});
+    artWrap.addEventListener('drop', e=>{
+      e.preventDefault(); artWrap.style.outline='none';
+      const f = e.dataTransfer.files && e.dataTransfer.files[0];
+      if(f && f.type.startsWith('image/')){
+        const reader = new FileReader(); reader.onload = ev=> userArt.src = ev.target.result; reader.readAsDataURL(f);
+      }
+    });
+  </script>
+</body>
+</html>
